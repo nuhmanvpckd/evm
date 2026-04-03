@@ -9,8 +9,14 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+let __filename = '';
+let __dirname = '';
+
+// Check if we're in an ESM environment
+if (typeof import.meta !== 'undefined' && (import.meta as any).url) {
+  __filename = fileURLToPath((import.meta as any).url);
+  __dirname = path.dirname(__filename);
+}
 
 const app = express();
 const PORT = 3000;
@@ -294,12 +300,14 @@ app.post('/api/demo/reset', authenticate, async (req, res) => {
 });
 
 // Vite middleware for development
-if (process.env.NODE_ENV !== 'production') {
-  const vite = await createViteServer({
-    server: { middlewareMode: true },
-    appType: 'spa',
-  });
-  app.use(vite.middlewares);
+if (process.env.NODE_ENV !== 'production' && !process.env.NETLIFY) {
+  (async () => {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  })();
 } else {
   const distPath = path.join(process.cwd(), 'dist');
   app.use(express.static(distPath));
