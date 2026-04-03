@@ -24,25 +24,47 @@ const PORT = 3000;
 app.use(express.json({ limit: '10mb' }));
 
 // MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI;
-const JWT_SECRET = process.env.JWT_SECRET;
+const MONGODB_URI = process.env.MONGODB_URI?.trim();
+const JWT_SECRET = process.env.JWT_SECRET?.trim();
+
+let isConnected = false;
 
 const connectDB = async () => {
+  if (isConnected) return;
+
   if (!MONGODB_URI) {
     console.error('CRITICAL ERROR: MONGODB_URI is not set in environment variables.');
-    console.error('Please set MONGODB_URI in the Settings menu.');
-    return;
+    throw new Error('MONGODB_URI is missing');
   }
 
   try {
     console.log('Connecting to MongoDB...');
     await mongoose.connect(MONGODB_URI);
+    isConnected = true;
     console.log('Successfully connected to MongoDB');
     await createDefaultAdmin();
   } catch (err) {
     console.error('MongoDB connection error:', err instanceof Error ? err.message : err);
+    throw err;
   }
 };
+
+// Middleware to ensure DB connection
+app.use(async (req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    try {
+      await connectDB();
+      next();
+    } catch (err) {
+      return res.status(500).json({ 
+        message: 'Database connection failed', 
+        error: err instanceof Error ? err.message : 'Unknown error' 
+      });
+    }
+  } else {
+    next();
+  }
+});
 
 // Models
 const AdminSchema = new mongoose.Schema({
@@ -95,22 +117,23 @@ const createDefaultAdmin = async () => {
     console.log(`Current admin count: ${count}`);
     if (count === 0) {
       const hashedPassword = await bcrypt.hash('admin123', 10);
-      await Admin.create({ email: 'admin@evm.com', password: hashedPassword });
-      console.log('Default admin created: admin@evm.com / admin123');
-    } else {
-      const admin = await Admin.findOne({ email: 'admin@evm.com' });
-      if (admin) {
-        console.log('Admin user "admin@evm.com" already exists.');
-      } else {
-        console.warn('Admin user "admin@evm.com" not found, but other admins exist.');
+      try {
+        await Admin.create({ email: 'admin@evm.com', password: hashedPassword });
+        console.log('Default admin created: admin@evm.com / admin123');
+      } catch (err: any) {
+        if (err.code === 11000) {
+          console.log('Admin already created by another process.');
+        } else {
+          throw err;
+        }
       }
+    } else {
+      console.log('Admin user(s) already exist.');
     }
   } catch (err) {
     console.error('Failed to create default admin:', err);
   }
 };
-
-connectDB();
 
 // Auth Routes
 app.post('/api/auth/login', async (req, res) => {
@@ -118,7 +141,7 @@ app.post('/api/auth/login', async (req, res) => {
   
   if (!JWT_SECRET) {
     console.error('CRITICAL ERROR: JWT_SECRET is not set in environment variables.');
-    return res.status(500).json({ message: 'Server configuration error' });
+    return res.status(500).json({ message: 'JWT_SECRET is missing' });
   }
 
   try {

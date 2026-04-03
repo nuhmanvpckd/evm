@@ -14,10 +14,18 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   };
 
   const response = await fetch(endpoint, { ...options, headers });
-  const data = await response.json();
+  
+  let data;
+  const contentType = response.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    data = await response.json();
+  } else {
+    const text = await response.text();
+    throw new Error(`Server returned ${response.status}: ${text.slice(0, 100)}`);
+  }
 
   if (!response.ok) {
-    throw new Error(data.message || 'Something went wrong');
+    throw new Error(data.message || data.error || 'Something went wrong');
   }
 
   return data;
