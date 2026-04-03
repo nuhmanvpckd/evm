@@ -340,7 +340,7 @@ if (process.env.NODE_ENV !== 'production' && !process.env.NETLIFY) {
 }
 
 import serverless from 'serverless-http';
-
+//nuh
 export const handler = serverless(app);
 
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
