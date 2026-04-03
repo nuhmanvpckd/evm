@@ -1,0 +1,5 @@
+{
+  "name": "EVM Demo Management System",
+  "description": "A realistic Indian EVM demo system with VVPAT simulation, admin panel, and multi-demo support.",
+  "requestFramePermissions": []
+}
