@@ -308,7 +308,9 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-export default app;
+import serverless from 'serverless-http';
+
+export const handler = serverless(app);
 
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   app.listen(PORT, '0.0.0.0', () => {
